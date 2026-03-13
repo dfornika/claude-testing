@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A minimal ClojureScript application">
-    <title>ClojureScript App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="Generative art — Perlin noise flow field">
+    <title>Flow Field</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="app">Loading...</div>
+    <div id="ui-overlay">
+        <span id="palette-name">Aurora</span>
+        <span id="tap-hint">tap to change</span>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
     <script src="js/main.js"></script>
-    <script>
-        // Initialize the app once the script loads
-        app.core.init();
-    </script>
+    <script>app.core.init();</script>
 </body>
 </html>
