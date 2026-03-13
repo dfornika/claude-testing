@@ -12,3 +12,15 @@ pom.xml.asc
 .lein-failures
 .nrepl-port
 .cpcache/
+
+# ClojureScript
+out/
+resources/public/js/
+
+# Node.js
+node_modules/
+package-lock.json
+.shadow-cljs/
+
+# Build artifacts
+public/js/
