@@ -1,0 +1,23 @@
+{:paths ["src"]
+
+ :deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["dev"]
+   :extra-deps {org.clojure/clojure {:mvn/version "1.11.1"}}}
+
+  :build
+  {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
+   :main-opts ["-m" "cljs.main"
+               "-O" "advanced"
+               "-o" "public/js/main.js"
+               "-c" "app.core"]}
+
+  :watch
+  {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
+   :main-opts ["-m" "cljs.main"
+               "-w" "src"
+               "-o" "public/js/main.js"
+               "-c" "app.core"
+               "-r"]}}}
