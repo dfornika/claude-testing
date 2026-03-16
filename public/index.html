@@ -6,6 +6,170 @@
     <meta name="description" content="Generative art — Perlin noise flow field">
     <title>Flow Field</title>
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- Embedded debug console — captures JS errors and log output, toggleable via badge -->
+    <style>
+        #dbg-badge {
+            position: fixed;
+            bottom: 4rem;
+            right: 1rem;
+            z-index: 9999;
+            background: rgba(30,30,30,0.85);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 2rem;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            transition: background 0.2s;
+            user-select: none;
+        }
+        #dbg-badge.has-errors { background: rgba(180,30,30,0.85); color: #fff; }
+
+        #dbg-panel {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(10,10,10,0.96);
+            flex-direction: column;
+        }
+        #dbg-panel.open { display: flex; }
+
+        #dbg-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-family: monospace;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.8rem;
+        }
+        #dbg-toolbar button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.7);
+            border-radius: 0.4rem;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-family: monospace;
+            margin-left: 0.5rem;
+        }
+        #dbg-log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.72rem;
+            line-height: 1.5;
+        }
+        .dbg-entry { padding: 0.2rem 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); word-break: break-all; }
+        .dbg-entry.log   { color: rgba(200,200,200,0.85); }
+        .dbg-entry.warn  { color: #f0c040; }
+        .dbg-entry.error { color: #ff6060; }
+        .dbg-entry .ts   { color: rgba(255,255,255,0.3); margin-right: 0.5rem; }
+    </style>
+    <script>
+    (function() {
+        var entries = [];
+        var errorCount = 0;
+        var badge, panel, log;
+
+        function ts() {
+            var d = new Date();
+            return d.toTimeString().slice(0,8) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+        }
+
+        function addEntry(level, msg) {
+            entries.push({ level: level, msg: msg, time: ts() });
+            if (level === 'error') {
+                errorCount++;
+                if (badge) {
+                    badge.textContent = '🐛 ' + errorCount;
+                    badge.classList.add('has-errors');
+                }
+            }
+            if (log) renderEntries();
+        }
+
+        function renderEntries() {
+            log.innerHTML = entries.map(function(e) {
+                return '<div class="dbg-entry ' + e.level + '"><span class="ts">' + e.time + '</span>' +
+                       escHtml(e.msg) + '</div>';
+            }).join('');
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // Intercept console methods
+        ['log','warn','error'].forEach(function(level) {
+            var orig = console[level].bind(console);
+            console[level] = function() {
+                var msg = Array.prototype.slice.call(arguments).map(function(a) {
+                    try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+                    catch(e) { return String(a); }
+                }).join(' ');
+                addEntry(level, msg);
+                orig.apply(console, arguments);
+            };
+        });
+
+        // Catch uncaught errors
+        window.onerror = function(msg, src, line, col) {
+            addEntry('error', msg + ' (' + (src||'?').split('/').pop() + ':' + line + ':' + col + ')');
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+            addEntry('error', 'Unhandled promise rejection: ' + (e.reason || e));
+        });
+
+        // Build UI after DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            badge = document.createElement('div');
+            badge.id = 'dbg-badge';
+            badge.textContent = '🐛 0';
+            badge.addEventListener('click', function() {
+                panel.classList.add('open');
+                renderEntries();
+            });
+
+            panel = document.createElement('div');
+            panel.id = 'dbg-panel';
+
+            var toolbar = document.createElement('div');
+            toolbar.id = 'dbg-toolbar';
+            toolbar.innerHTML = '<span>debug console</span><span></span>';
+            var closeBtn = document.createElement('button');
+            closeBtn.textContent = 'close';
+            closeBtn.addEventListener('click', function() { panel.classList.remove('open'); });
+            var clearBtn = document.createElement('button');
+            clearBtn.textContent = 'clear';
+            clearBtn.addEventListener('click', function() {
+                entries = []; errorCount = 0;
+                badge.textContent = '🐛 0';
+                badge.classList.remove('has-errors');
+                renderEntries();
+            });
+            toolbar.querySelector('span:last-child').append(clearBtn, closeBtn);
+
+            log = document.createElement('div');
+            log.id = 'dbg-log';
+
+            panel.append(toolbar, log);
+            document.body.append(badge, panel);
+            renderEntries();
+
+            console.log('Debug console ready.');
+        });
+    })();
+    </script>
 </head>
 <body>
     <div id="ui-overlay">
