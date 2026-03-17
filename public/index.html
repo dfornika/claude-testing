@@ -135,10 +135,14 @@
             badge = document.createElement('div');
             badge.id = 'dbg-badge';
             badge.textContent = '🐛 0';
-            badge.addEventListener('click', function() {
+            function openPanel(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 panel.classList.add('open');
                 renderEntries();
-            });
+            }
+            badge.addEventListener('touchstart', openPanel, { passive: false });
+            badge.addEventListener('click', openPanel);
 
             panel = document.createElement('div');
             panel.id = 'dbg-panel';
