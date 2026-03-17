@@ -50,8 +50,9 @@
 
       (set! (.-setup p)
             (fn []
-              (.createCanvas p (.-windowWidth js/window) (.-windowHeight js/window))
+              (.createCanvas p (.-windowWidth p) (.-windowHeight p))
               (.colorMode p (.-HSB p) 360 100 100 100)
+              (.background p 0 0 0)
               (.frameRate p 30)
               (.noStroke p)
               (swap! state assoc :particles
@@ -106,7 +107,7 @@
 
       (set! (.-windowResized p)
             (fn []
-              (.resizeCanvas p (.-windowWidth js/window) (.-windowHeight js/window)))))))
+              (.resizeCanvas p (.-windowWidth p) (.-windowHeight p)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point
