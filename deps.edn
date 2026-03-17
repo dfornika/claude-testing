@@ -10,7 +10,7 @@
   :build
   {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
    :main-opts ["-m" "cljs.main"
-               "-O" "advanced"
+               "-O" "simple"
                "-o" "public/js/main.js"
                "-c" "app.core"]}
 
