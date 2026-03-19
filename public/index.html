@@ -186,8 +186,23 @@
         <span id="palette-name">Aurora</span>
         <span id="tap-hint">tap to change</span>
     </div>
+    <div id="size-controls">
+        <button id="size-down">&#x2212;</button>
+        <span id="size-display">size</span>
+        <button id="size-up">&#x2b;</button>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
     <script src="js/main.js"></script>
-    <script>app.core.init();</script>
+    <script>
+        app.core.init();
+        (function() {
+            function addTouch(el, fn) {
+                el.addEventListener('touchstart', function(e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+                el.addEventListener('click', fn);
+            }
+            addTouch(document.getElementById('size-down'), function() { window.adjustParticleSize(-0.25); });
+            addTouch(document.getElementById('size-up'),   function() { window.adjustParticleSize(+0.25); });
+        })();
+    </script>
 </body>
 </html>

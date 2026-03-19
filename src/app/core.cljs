@@ -37,6 +37,12 @@
         (listen)))))
 
 ;; ---------------------------------------------------------------------------
+;; Particle size — exposed to JS so HTML buttons can adjust it
+;; ---------------------------------------------------------------------------
+
+(defonce particle-size (atom 1.0))
+
+;; ---------------------------------------------------------------------------
 ;; Particle helpers
 ;; ---------------------------------------------------------------------------
 
@@ -50,7 +56,7 @@
 (defn wrap [v limit]
   (cond (< v 0) limit (> v limit) 0 :else v))
 
-(defn update-particle [p particle field-scale z w h]
+(defn update-particle [p particle field-scale z w h touch]
   (let [{:keys [x y vx vy hue]} particle
         nx    (* x field-scale)
         ny    (* y field-scale)
@@ -59,8 +65,17 @@
         {:keys [gamma beta]} @gyro
         gx    (* (/ gamma 90) 0.4)
         gy    (* (/ (- beta 90) 90) 0.4)
-        nvx   (+ (* vx 0.9) (* (.cos p angle) 1.5) gx)
-        nvy   (+ (* vy 0.9) (* (.sin p angle) 1.5) gy)]
+        ;; Finger attraction force when dragging
+        [fx fy] (if (:active touch)
+                  (let [dx   (- (:x touch) x)
+                        dy   (- (:y touch) y)
+                        dist (max 1 (.sqrt js/Math (+ (* dx dx) (* dy dy))))
+                        str  (min 0.6 (* dist 0.003))]
+                    [(* (/ dx dist) str)
+                     (* (/ dy dist) str)])
+                  [0 0])
+        nvx   (+ (* vx 0.9) (* (.cos p angle) 1.5) gx fx)
+        nvy   (+ (* vy 0.9) (* (.sin p angle) 1.5) gy fy)]
     {:x   (wrap (+ x nvx) w)
      :y   (wrap (+ y nvy) h)
      :vx  nvx
@@ -75,7 +90,8 @@
   (fn [p]
     (let [state (atom {:z          0
                        :palette-idx 0
-                       :particles  []})]
+                       :particles  []
+                       :touch      {:x nil :y nil :active false}})]
 
       (set! (.-setup p)
             (fn []
@@ -92,11 +108,12 @@
 
       (set! (.-draw p)
             (fn []
-              (let [{:keys [z palette-idx particles]} @state
-                    {:keys [h1 h2 s b]}              (nth palettes palette-idx)
-                    w  (.-width p)
-                    h  (.-height p)
-                    scale 0.0035]
+              (let [{:keys [z palette-idx particles touch]} @state
+                    {:keys [h1 h2 s b]}                    (nth palettes palette-idx)
+                    w   (.-width p)
+                    h   (.-height p)
+                    scale 0.0035
+                    sz  @particle-size]
 
                 ;; Fade trail
                 (.fill p 0 0 0 8)
@@ -105,17 +122,17 @@
                 ;; Draw and update each particle with layered glow
                 (let [new-particles
                       (mapv (fn [particle]
-                              (let [updated (update-particle p particle scale z w h)
+                              (let [updated (update-particle p particle scale z w h touch)
                                     hue     (if (= h1 h2)
                                               0
                                               (+ h1 (* (/ (mod (:hue updated) 360) 360)
                                                        (- h2 h1))))]
-                                ;; Outer smoke halo — large, very transparent
+                                ;; Outer smoke halo
                                 (.fill p hue s b 12)
-                                (.circle p (:x updated) (:y updated) 10)
+                                (.circle p (:x updated) (:y updated) (* 10 sz))
                                 ;; Bright inner core
                                 (.fill p hue s (min 100 (+ b 5)) 85)
-                                (.circle p (:x updated) (:y updated) 3)
+                                (.circle p (:x updated) (:y updated) (* 3 sz))
                                 updated))
                             particles)]
 
@@ -128,10 +145,12 @@
               ;; Request gyro permission on first tap (iOS 13+)
               (start-gyro)
               (swap! state (fn [{:keys [palette-idx z] :as st}]
-                             (let [next-idx (mod (inc palette-idx) (count palettes))]
+                             (let [next-idx (mod (inc palette-idx) (count palettes))
+                                   name     (:name (nth palettes next-idx))]
                                (set! (.-innerHTML
                                        (.getElementById js/document "palette-name"))
-                                     (:name (nth palettes next-idx)))
+                                     name)
+                               (.log js/console (str "palette \u2192 " name))
                                (assoc st
                                       :palette-idx next-idx
                                       :z (+ z 50)))))
@@ -139,6 +158,30 @@
 
       (set! (.-touchStarted p)
             (.-mousePressed p))
+
+      (set! (.-mouseDragged p)
+            (fn []
+              (let [prev-active (get-in @state [:touch :active])]
+                (when-not prev-active
+                  (.log js/console (str "drag start ("
+                                        (int (.-mouseX p)) ", "
+                                        (int (.-mouseY p)) ")")))
+                (swap! state assoc :touch {:x      (.-mouseX p)
+                                           :y      (.-mouseY p)
+                                           :active true}))
+              false))
+
+      (set! (.-touchMoved p)
+            (.-mouseDragged p))
+
+      (set! (.-mouseReleased p)
+            (fn []
+              (when (get-in @state [:touch :active])
+                (.log js/console "drag end"))
+              (swap! state assoc-in [:touch :active] false)))
+
+      (set! (.-touchEnded p)
+            (.-mouseReleased p))
 
       (set! (.-windowResized p)
             (fn []
@@ -149,5 +192,13 @@
 ;; ---------------------------------------------------------------------------
 
 (defn ^:export init []
+  ;; Expose size adjustment to HTML buttons
+  (set! (.-adjustParticleSize js/window)
+        (fn [delta]
+          (let [new-size (-> (+ @particle-size delta)
+                             (max 0.3)
+                             (min 4.0))]
+            (reset! particle-size new-size)
+            (.log js/console (str "particle size \u2192 " (.toFixed new-size 2))))))
   (start-gyro)   ;; starts immediately on Android; iOS permission deferred to first tap
   (js/p5. (make-sketch)))
