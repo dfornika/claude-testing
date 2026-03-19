@@ -45,3 +45,44 @@ canvas {
     font-size: 0.75rem;
     letter-spacing: 0.03em;
 }
+
+#size-controls {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 2rem;
+    padding: 0.35rem 0.7rem;
+    z-index: 100;
+    user-select: none;
+}
+
+#size-controls button {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.2rem;
+    font-family: monospace;
+    touch-action: manipulation;
+}
+
+#size-controls button:active {
+    color: #fff;
+}
+
+#size-display {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.65rem;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+    min-width: 2.5rem;
+    text-align: center;
+}
