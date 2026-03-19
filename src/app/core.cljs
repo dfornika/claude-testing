@@ -12,15 +12,40 @@
    {:name "Mono"      :h1 0   :h2 0   :s 0  :b 95}])
 
 ;; ---------------------------------------------------------------------------
+;; Gyroscope — updated by DeviceOrientationEvent, consumed in update-particle
+;; ---------------------------------------------------------------------------
+
+(defonce gyro (atom {:gamma 0 :beta 0}))
+(defonce gyro-started (atom false))
+
+(defn start-gyro []
+  (when-not @gyro-started
+    (reset! gyro-started true)
+    (let [listen (fn []
+                   (.addEventListener js/window "deviceorientation"
+                     (fn [e]
+                       (when (.-gamma e)
+                         (reset! gyro {:gamma (.-gamma e)
+                                       :beta  (.-beta e)})))))]
+      ;; iOS 13+ requires an explicit permission request from a user gesture
+      (if (and (.-DeviceOrientationEvent js/window)
+               (.-requestPermission (.-DeviceOrientationEvent js/window)))
+        (-> (.requestPermission (.-DeviceOrientationEvent js/window))
+            (.then (fn [result]
+                     (when (= result "granted") (listen)))))
+        ;; Android and older iOS — works immediately
+        (listen)))))
+
+;; ---------------------------------------------------------------------------
 ;; Particle helpers
 ;; ---------------------------------------------------------------------------
 
 (defn make-particle [p w h]
-  {:x     (.random p w)
-   :y     (.random p h)
-   :vx    0
-   :vy    0
-   :hue   (.random p 360)})
+  {:x   (.random p w)
+   :y   (.random p h)
+   :vx  0
+   :vy  0
+   :hue (.random p 360)})
 
 (defn wrap [v limit]
   (cond (< v 0) limit (> v limit) 0 :else v))
@@ -30,8 +55,12 @@
         nx    (* x field-scale)
         ny    (* y field-scale)
         angle (* (.noise p nx ny z) js/Math.PI 4)
-        nvx   (+ (* vx 0.9) (* (.cos p angle) 1.5))
-        nvy   (+ (* vy 0.9) (* (.sin p angle) 1.5))]
+        ;; Gyro bias: gamma = left/right tilt, beta ≈ 90 when phone upright
+        {:keys [gamma beta]} @gyro
+        gx    (* (/ gamma 90) 0.4)
+        gy    (* (/ (- beta 90) 90) 0.4)
+        nvx   (+ (* vx 0.9) (* (.cos p angle) 1.5) gx)
+        nvy   (+ (* vy 0.9) (* (.sin p angle) 1.5) gy)]
     {:x   (wrap (+ x nvx) w)
      :y   (wrap (+ y nvy) h)
      :vx  nvx
@@ -69,11 +98,11 @@
                     h  (.-height p)
                     scale 0.0035]
 
-                ;; Fade trail: semi-transparent black rect over full canvas
+                ;; Fade trail
                 (.fill p 0 0 0 8)
                 (.rect p 0 0 w h)
 
-                ;; Draw and update each particle
+                ;; Draw and update each particle with layered glow
                 (let [new-particles
                       (mapv (fn [particle]
                               (let [updated (update-particle p particle scale z w h)
@@ -81,8 +110,12 @@
                                               0
                                               (+ h1 (* (/ (mod (:hue updated) 360) 360)
                                                        (- h2 h1))))]
-                                (.fill p hue s b 70)
-                                (.circle p (:x updated) (:y updated) 2.5)
+                                ;; Outer smoke halo — large, very transparent
+                                (.fill p hue s b 12)
+                                (.circle p (:x updated) (:y updated) 10)
+                                ;; Bright inner core
+                                (.fill p hue s (min 100 (+ b 5)) 85)
+                                (.circle p (:x updated) (:y updated) 3)
                                 updated))
                             particles)]
 
@@ -92,6 +125,8 @@
 
       (set! (.-mousePressed p)
             (fn []
+              ;; Request gyro permission on first tap (iOS 13+)
+              (start-gyro)
               (swap! state (fn [{:keys [palette-idx z] :as st}]
                              (let [next-idx (mod (inc palette-idx) (count palettes))]
                                (set! (.-innerHTML
@@ -100,7 +135,7 @@
                                (assoc st
                                       :palette-idx next-idx
                                       :z (+ z 50)))))
-              false))   ;; prevent default / scroll
+              false))
 
       (set! (.-touchStarted p)
             (.-mousePressed p))
@@ -114,4 +149,5 @@
 ;; ---------------------------------------------------------------------------
 
 (defn ^:export init []
+  (start-gyro)   ;; starts immediately on Android; iOS permission deferred to first tap
   (js/p5. (make-sketch)))

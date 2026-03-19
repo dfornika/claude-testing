@@ -62,6 +62,8 @@
         #dbg-log {
             flex: 1;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
             padding: 0.5rem;
             font-family: monospace;
             font-size: 0.72rem;
@@ -150,12 +152,16 @@
             var toolbar = document.createElement('div');
             toolbar.id = 'dbg-toolbar';
             toolbar.innerHTML = '<span>debug console</span><span></span>';
+            function addTouch(el, fn) {
+                el.addEventListener('touchstart', function(e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+                el.addEventListener('click', fn);
+            }
             var closeBtn = document.createElement('button');
             closeBtn.textContent = 'close';
-            closeBtn.addEventListener('click', function() { panel.classList.remove('open'); });
+            addTouch(closeBtn, function() { panel.classList.remove('open'); });
             var clearBtn = document.createElement('button');
             clearBtn.textContent = 'clear';
-            clearBtn.addEventListener('click', function() {
+            addTouch(clearBtn, function() {
                 entries = []; errorCount = 0;
                 badge.textContent = '🐛 0';
                 badge.classList.remove('has-errors');
